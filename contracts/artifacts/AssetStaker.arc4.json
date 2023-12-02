@@ -1,0 +1,114 @@
+{
+  "name": "AssetStaker",
+  "desc": "",
+  "methods": [
+    {
+      "name": "optInToApplication",
+      "args": [],
+      "desc": "",
+      "returns": {
+        "type": "void",
+        "desc": ""
+      }
+    },
+    {
+      "name": "createApplication",
+      "args": [],
+      "desc": "",
+      "returns": {
+        "type": "void",
+        "desc": ""
+      }
+    },
+    {
+      "name": "bootstrap",
+      "args": [
+        {
+          "name": "seed",
+          "type": "pay",
+          "desc": "The`pay`txn to fund the app (0.2 min)"
+        },
+        {
+          "name": "stakeAsset",
+          "type": "asset",
+          "desc": "The asset to be staked"
+        },
+        {
+          "name": "rewardAsset",
+          "type": "asset",
+          "desc": "The asset to pay rewards"
+        },
+        {
+          "name": "start",
+          "type": "uint64",
+          "desc": "The start time in UNIX time"
+        },
+        {
+          "name": "finish",
+          "type": "uint64",
+          "desc": "The end time in UNIX time"
+        }
+      ],
+      "desc": "Allows creator to initialize the app",
+      "returns": {
+        "type": "void",
+        "desc": "void"
+      }
+    },
+    {
+      "name": "addRewards",
+      "args": [
+        {
+          "name": "axfer",
+          "type": "axfer",
+          "desc": "The`axfer`funding the app with rewardAsset"
+        },
+        {
+          "name": "rewardRate",
+          "type": "uint64",
+          "desc": "the uint64 value of how many rewards per second"
+        }
+      ],
+      "desc": "Allows contract to be funded with more rewards",
+      "returns": {
+        "type": "uint64",
+        "desc": "uint64 - the total rewards (in rewardToken) remaining in the app"
+      }
+    },
+    {
+      "name": "addStake",
+      "args": [
+        {
+          "name": "axfer",
+          "type": "axfer",
+          "desc": "The`axfer`funding the app with stakingAsset"
+        }
+      ],
+      "desc": "Allows users to stake tokens",
+      "returns": {
+        "type": "uint64",
+        "desc": "uint64 - the total number of tokens user has staked"
+      }
+    },
+    {
+      "name": "removeStake",
+      "args": [
+        {
+          "name": "asset",
+          "type": "asset",
+          "desc": "The stakeTokenAsset (needs implicitly declared?)"
+        },
+        {
+          "name": "amount",
+          "type": "uint64",
+          "desc": ""
+        }
+      ],
+      "desc": "Allows users to remove staked tokens",
+      "returns": {
+        "type": "uint64",
+        "desc": "uint64 - the total number of tokens user has staked (may be zero if all are removed)"
+      }
+    }
+  ]
+}
