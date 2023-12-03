@@ -62,21 +62,21 @@ calculateRewards:
 	proto 6 0
 
 	// contracts/asset-staker.algo.ts:50
-	// assert(globals.latestTimestamp < this.startTimestamp.value)
+	// assert(globals.latestTimestamp >= this.startTimestamp.value)
 	global LatestTimestamp
 	byte 0x7374 // "st"
 	app_global_get
-	<
+	>=
 	assert
 
 	// contracts/asset-staker.algo.ts:52
-	// assert(this.userLastUpdated(account).value < this.finishTimestamp.value)
+	// assert(this.userLastUpdated(account).value <= this.finishTimestamp.value)
 	frame_dig -1 // account: account
 	byte 0x756c // "ul"
 	app_local_get
 	byte 0x6669 // "fi"
 	app_global_get
-	<
+	<=
 	assert
 
 	// contracts/asset-staker.algo.ts:54

@@ -122,8 +122,10 @@ describe('AssetStaker', () => {
       suggestedParams: params,
     });
 
-    const start = Math.floor(Date.now() / 1000);
-    const finish = start + 30; // now + 30 secs
+    // This only works in Sandbox, not AlgoKit Localnet, which doesn't advance blocks & time normally
+    const start = Math.floor(Date.now() / 1000) + 30;
+    const finish = start + 600; // now + 600 secs
+    console.debug(`Timestamps: Start: ${start} Finish: ${finish}`);
 
     await assetStakerClient.bootstrap(
       { seed: seedTxn, stakeAsset: createdAssetId, rewardAsset: createdAssetId, start, finish },

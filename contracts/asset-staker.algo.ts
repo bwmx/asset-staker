@@ -47,9 +47,9 @@ class AssetStaker extends Contract {
   //
   private calculateRewards(account: Account): void {
     // no point if has not yet begun (users arent entitled to rewards)
-    assert(globals.latestTimestamp < this.startTimestamp.value);
+    assert(globals.latestTimestamp >= this.startTimestamp.value);
     // do nothing if user is updating their balance after finish time
-    assert(this.userLastUpdated(account).value < this.finishTimestamp.value);
+    assert(this.userLastUpdated(account).value <= this.finishTimestamp.value);
 
     const end =
       globals.latestTimestamp > this.finishTimestamp.value ? this.finishTimestamp.value : globals.latestTimestamp;
