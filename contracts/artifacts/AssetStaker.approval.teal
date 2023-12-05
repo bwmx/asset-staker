@@ -58,28 +58,26 @@ optIntoAsset:
 	itxn_submit
 	retsub
 
-calculateRewards:
-	proto 6 0
+getRewardPerToken:
+	proto 4 1
 
-	// contracts/asset-staker.algo.ts:50
-	// assert(globals.latestTimestamp >= this.startTimestamp.value)
-	global LatestTimestamp
-	byte 0x7374 // "st"
+	// if0_condition
+	// contracts/asset-staker.algo.ts:48
+	// this.totalStaked.value === 0
+	byte 0x7473 // "ts"
 	app_global_get
-	>=
-	assert
+	int 0
+	==
+	bz if0_end
 
+	// if0_consequent
+	// contracts/asset-staker.algo.ts:49
+	// return 0;
+	int 0
+	retsub
+
+if0_end:
 	// contracts/asset-staker.algo.ts:52
-	// assert(this.userLastUpdated(account).value <= this.finishTimestamp.value)
-	frame_dig -1 // account: account
-	byte 0x756c // "ul"
-	app_local_get
-	byte 0x6669 // "fi"
-	app_global_get
-	<=
-	assert
-
-	// contracts/asset-staker.algo.ts:54
 	// end =
 	//       globals.latestTimestamp > this.finishTimestamp.value ? this.finishTimestamp.value : globals.latestTimestamp
 	global LatestTimestamp
@@ -97,7 +95,7 @@ ternary1_false:
 ternary1_end:
 	frame_bury -2 // end: uint64
 
-	// contracts/asset-staker.algo.ts:57
+	// contracts/asset-staker.algo.ts:55
 	// start =
 	//       this.userLastUpdated(account).value < this.startTimestamp.value
 	//         ? this.startTimestamp.value
@@ -121,62 +119,105 @@ ternary3_false:
 ternary3_end:
 	frame_bury -3 // start: uint64
 
-	// contracts/asset-staker.algo.ts:63
+	// contracts/asset-staker.algo.ts:61
 	// duration = end - start
 	frame_dig -2 // end: uint64
 	frame_dig -3 // start: uint64
 	-
 	frame_bury -4 // duration: uint64
 
-	// contracts/asset-staker.algo.ts:64
+	// contracts/asset-staker.algo.ts:63
+	// return duration * this.rewardRate.value;
+	frame_dig -4 // duration: uint64
+	byte 0x7272 // "rr"
+	app_global_get
+	*
+	retsub
+
+calculateRewards:
+	proto 4 0
+
+	// if1_condition
+	// contracts/asset-staker.algo.ts:68
+	// globals.latestTimestamp < this.startTimestamp.value
+	global LatestTimestamp
+	byte 0x7374 // "st"
+	app_global_get
+	<
+	bz if1_end
+
+	// if1_consequent
+	// contracts/asset-staker.algo.ts:69
+	// return;
+	retsub
+
+if1_end:
+	// if2_condition
+	// contracts/asset-staker.algo.ts:72
+	// this.userLastUpdated(account).value > this.finishTimestamp.value
+	frame_dig -1 // account: account
+	byte 0x756c // "ul"
+	app_local_get
+	byte 0x6669 // "fi"
+	app_global_get
+	>
+	bz if2_end
+
+	// if2_consequent
+	// contracts/asset-staker.algo.ts:73
+	// return;
+	retsub
+
+if2_end:
+	// contracts/asset-staker.algo.ts:76
+	// rewardsPerToken = this.getRewardPerToken(account)
+	byte 0x; dupn 2 // push empty bytes to fill the stack frame for this subroutine's local variables
+	frame_dig -1 // account: account
+	callsub getRewardPerToken
+	frame_bury -2 // rewardsPerToken: uint64
+
+	// contracts/asset-staker.algo.ts:77
 	// amountStaked = this.userStake(account).value
 	frame_dig -1 // account: account
 	byte 0x7573 // "us"
 	app_local_get
-	frame_bury -5 // amountStaked: uint64
+	frame_bury -3 // amountStaked: uint64
 
-	// contracts/asset-staker.algo.ts:66
-	// rewardsEarned = (((amountStaked * duration) / 31557600) * this.rewardRate.value) / 10000
-	frame_dig -5 // amountStaked: uint64
-	frame_dig -4 // duration: uint64
+	// contracts/asset-staker.algo.ts:79
+	// rewardsEarned = amountStaked * rewardsPerToken
+	frame_dig -3 // amountStaked: uint64
+	frame_dig -2 // rewardsPerToken: uint64
 	*
-	int 31557600
-	/
-	byte 0x7272 // "rr"
-	app_global_get
-	*
-	int 10000
-	/
-	frame_bury -6 // rewardsEarned: uint64
+	frame_bury -4 // rewardsEarned: uint64
 
-	// contracts/asset-staker.algo.ts:69
+	// contracts/asset-staker.algo.ts:82
 	// this.userPendingRewards(account).value = this.userPendingRewards(account).value + rewardsEarned
 	frame_dig -1 // account: account
 	byte 0x7570 // "up"
 	frame_dig -1 // account: account
 	byte 0x7570 // "up"
 	app_local_get
-	frame_dig -6 // rewardsEarned: uint64
+	frame_dig -4 // rewardsEarned: uint64
 	+
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:71
+	// contracts/asset-staker.algo.ts:84
 	// this.totalRewards.value = this.totalRewards.value - rewardsEarned
 	byte 0x7472 // "tr"
 	byte 0x7472 // "tr"
 	app_global_get
-	frame_dig -6 // rewardsEarned: uint64
+	frame_dig -4 // rewardsEarned: uint64
 	-
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:74
+	// contracts/asset-staker.algo.ts:87
 	// this.userLastUpdated(account).value = globals.latestTimestamp
 	frame_dig -1 // account: account
 	byte 0x756c // "ul"
 	global LatestTimestamp
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:76
+	// contracts/asset-staker.algo.ts:89
 	// this.lastUpdated.value = globals.latestTimestamp
 	byte 0x6c75 // "lu"
 	global LatestTimestamp
@@ -195,21 +236,21 @@ abi_route_optInToApplication:
 optInToApplication:
 	proto 0 0
 
-	// contracts/asset-staker.algo.ts:81
+	// contracts/asset-staker.algo.ts:94
 	// this.userLastUpdated(this.txn.sender).value = 0
 	txn Sender
 	byte 0x756c // "ul"
 	int 0
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:82
+	// contracts/asset-staker.algo.ts:95
 	// this.userPendingRewards(this.txn.sender).value = 0
 	txn Sender
 	byte 0x7570 // "up"
 	int 0
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:83
+	// contracts/asset-staker.algo.ts:96
 	// this.userStake(this.txn.sender).value = 0
 	txn Sender
 	byte 0x7573 // "us"
@@ -227,49 +268,49 @@ abi_route_createApplication:
 createApplication:
 	proto 0 0
 
-	// contracts/asset-staker.algo.ts:87
+	// contracts/asset-staker.algo.ts:100
 	// this.stakeAsset.value = Asset.zeroIndex
 	byte 0x7361 // "sa"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:88
+	// contracts/asset-staker.algo.ts:101
 	// this.rewardAsset.value = Asset.zeroIndex
 	byte 0x7261 // "ra"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:89
+	// contracts/asset-staker.algo.ts:102
 	// this.totalRewards.value = 0
 	byte 0x7472 // "tr"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:90
+	// contracts/asset-staker.algo.ts:103
 	// this.rewardRate.value = 0
 	byte 0x7272 // "rr"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:91
+	// contracts/asset-staker.algo.ts:104
 	// this.totalStaked.value = 0
 	byte 0x7473 // "ts"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:92
+	// contracts/asset-staker.algo.ts:105
 	// this.startTimestamp.value = 0
 	byte 0x7374 // "st"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:93
+	// contracts/asset-staker.algo.ts:106
 	// this.finishTimestamp.value = 0
 	byte 0x6669 // "fi"
 	int 0
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:94
+	// contracts/asset-staker.algo.ts:107
 	// this.lastUpdated.value = 0
 	byte 0x6c75 // "lu"
 	int 0
@@ -326,21 +367,21 @@ abi_route_bootstrap:
 bootstrap:
 	proto 7 0
 
-	// contracts/asset-staker.algo.ts:110
+	// contracts/asset-staker.algo.ts:123
 	// assert(start < finish)
 	frame_dig -4 // start: uint64
 	frame_dig -5 // finish: uint64
 	<
 	assert
 
-	// contracts/asset-staker.algo.ts:112
+	// contracts/asset-staker.algo.ts:125
 	// assert(globals.latestTimestamp < start)
 	global LatestTimestamp
 	frame_dig -4 // start: uint64
 	<
 	assert
 
-	// contracts/asset-staker.algo.ts:114
+	// contracts/asset-staker.algo.ts:127
 	// verifyTxn(this.txn, { sender: globals.creatorAddress })
 	// verify sender
 	txn Sender
@@ -348,7 +389,7 @@ bootstrap:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:116
+	// contracts/asset-staker.algo.ts:129
 	// assert(this.stakeAsset.value === Asset.zeroIndex)
 	byte 0x7361 // "sa"
 	app_global_get
@@ -356,7 +397,7 @@ bootstrap:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:118
+	// contracts/asset-staker.algo.ts:131
 	// assert(this.rewardAsset.value === Asset.zeroIndex)
 	byte 0x7261 // "ra"
 	app_global_get
@@ -364,21 +405,21 @@ bootstrap:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:120
+	// contracts/asset-staker.algo.ts:133
 	// assert(globals.groupSize === 2)
 	global GroupSize
 	int 2
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:122
+	// contracts/asset-staker.algo.ts:135
 	// isAssetSame = stakeAsset === rewardAsset
 	frame_dig -2 // stakeAsset: asset
 	frame_dig -3 // rewardAsset: asset
 	==
 	frame_bury -6 // isAssetSame: bool
 
-	// contracts/asset-staker.algo.ts:123
+	// contracts/asset-staker.algo.ts:136
 	// requiredAmount = isAssetSame ? 2_000 : 3_000
 	frame_dig -6 // isAssetSame: bool
 	bz ternary5_false
@@ -391,7 +432,7 @@ ternary5_false:
 ternary5_end:
 	frame_bury -7 // requiredAmount: uint64
 
-	// contracts/asset-staker.algo.ts:126
+	// contracts/asset-staker.algo.ts:139
 	// verifyTxn(seed, { receiver: this.app.address, amount: { greaterThanEqualTo: requiredAmount } })
 	// verify receiver
 	frame_dig -1 // seed: pay
@@ -407,52 +448,52 @@ ternary5_end:
 	>=
 	assert
 
-	// contracts/asset-staker.algo.ts:128
+	// contracts/asset-staker.algo.ts:141
 	// this.optIntoAsset(stakeAsset)
 	frame_dig -2 // stakeAsset: asset
 	callsub optIntoAsset
 
-	// contracts/asset-staker.algo.ts:129
+	// contracts/asset-staker.algo.ts:142
 	// this.stakeAsset.value = stakeAsset
 	byte 0x7361 // "sa"
 	frame_dig -2 // stakeAsset: asset
 	app_global_put
 
-	// if0_condition
-	// contracts/asset-staker.algo.ts:131
+	// if3_condition
+	// contracts/asset-staker.algo.ts:144
 	// !isAssetSame
 	frame_dig -6 // isAssetSame: bool
 	!
-	bz if0_else
+	bz if3_else
 
-	// if0_consequent
-	// contracts/asset-staker.algo.ts:132
+	// if3_consequent
+	// contracts/asset-staker.algo.ts:145
 	// this.optIntoAsset(rewardAsset)
 	frame_dig -3 // rewardAsset: asset
 	callsub optIntoAsset
 
-	// contracts/asset-staker.algo.ts:133
+	// contracts/asset-staker.algo.ts:146
 	// this.rewardAsset.value = rewardAsset
 	byte 0x7261 // "ra"
 	frame_dig -3 // rewardAsset: asset
 	app_global_put
-	b if0_end
+	b if3_end
 
-if0_else:
-	// contracts/asset-staker.algo.ts:135
+if3_else:
+	// contracts/asset-staker.algo.ts:148
 	// this.rewardAsset.value = stakeAsset
 	byte 0x7261 // "ra"
 	frame_dig -2 // stakeAsset: asset
 	app_global_put
 
-if0_end:
-	// contracts/asset-staker.algo.ts:138
+if3_end:
+	// contracts/asset-staker.algo.ts:151
 	// this.startTimestamp.value = start
 	byte 0x7374 // "st"
 	frame_dig -4 // start: uint64
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:139
+	// contracts/asset-staker.algo.ts:152
 	// this.finishTimestamp.value = finish
 	byte 0x6669 // "fi"
 	frame_dig -5 // finish: uint64
@@ -492,7 +533,7 @@ abi_route_addRewards:
 addRewards:
 	proto 3 0
 
-	// contracts/asset-staker.algo.ts:152
+	// contracts/asset-staker.algo.ts:165
 	// verifyTxn(this.txn, { sender: globals.creatorAddress })
 	// verify sender
 	txn Sender
@@ -500,7 +541,7 @@ addRewards:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:155
+	// contracts/asset-staker.algo.ts:168
 	// verifyTxn(axfer, {
 	//       sender: this.txn.sender,
 	//       xferAsset: this.rewardAsset.value,
@@ -536,7 +577,7 @@ addRewards:
 	>
 	assert
 
-	// contracts/asset-staker.algo.ts:162
+	// contracts/asset-staker.algo.ts:175
 	// newTotalRewards = this.totalRewards.value + axfer.assetAmount
 	byte 0x7472 // "tr"
 	app_global_get
@@ -545,26 +586,26 @@ addRewards:
 	+
 	frame_bury -3 // newTotalRewards: uint64
 
-	// contracts/asset-staker.algo.ts:164
+	// contracts/asset-staker.algo.ts:177
 	// this.totalRewards.value = newTotalRewards
 	byte 0x7472 // "tr"
 	frame_dig -3 // newTotalRewards: uint64
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:167
+	// contracts/asset-staker.algo.ts:180
 	// assert(rewardRate > 0)
 	frame_dig -2 // rewardRate: uint64
 	int 0
 	>
 	assert
 
-	// contracts/asset-staker.algo.ts:170
+	// contracts/asset-staker.algo.ts:183
 	// this.rewardRate.value = rewardRate
 	byte 0x7272 // "rr"
 	frame_dig -2 // rewardRate: uint64
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:172
+	// contracts/asset-staker.algo.ts:185
 	// return newTotalRewards;
 	frame_dig -3 // newTotalRewards: uint64
 	itob
@@ -602,7 +643,7 @@ abi_route_addStake:
 addStake:
 	proto 3 0
 
-	// contracts/asset-staker.algo.ts:183
+	// contracts/asset-staker.algo.ts:196
 	// verifyTxn(axfer, {
 	//       sender: this.txn.sender,
 	//       xferAsset: this.stakeAsset.value,
@@ -638,19 +679,19 @@ addStake:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:191
+	// contracts/asset-staker.algo.ts:204
 	// this.calculateRewards(this.txn.sender)
-	byte 0x; dupn 4 // push empty bytes to fill the stack frame for this subroutine's local variables
+	byte 0x; dupn 2 // push empty bytes to fill the stack frame for this subroutine's local variables
 	txn Sender
 	callsub calculateRewards
 
-	// contracts/asset-staker.algo.ts:193
+	// contracts/asset-staker.algo.ts:206
 	// amount = axfer.assetAmount
 	frame_dig -1 // axfer: axfer
 	gtxns AssetAmount
 	frame_bury -2 // amount: uint64
 
-	// contracts/asset-staker.algo.ts:196
+	// contracts/asset-staker.algo.ts:209
 	// this.totalStaked.value = this.totalStaked.value + amount
 	byte 0x7473 // "ts"
 	byte 0x7473 // "ts"
@@ -659,7 +700,7 @@ addStake:
 	+
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:198
+	// contracts/asset-staker.algo.ts:211
 	// newUserStake = this.userStake(this.txn.sender).value + amount
 	txn Sender
 	byte 0x7573 // "us"
@@ -668,14 +709,14 @@ addStake:
 	+
 	frame_bury -3 // newUserStake: uint64
 
-	// contracts/asset-staker.algo.ts:199
+	// contracts/asset-staker.algo.ts:212
 	// this.userStake(this.txn.sender).value = newUserStake
 	txn Sender
 	byte 0x7573 // "us"
 	frame_dig -3 // newUserStake: uint64
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:201
+	// contracts/asset-staker.algo.ts:214
 	// return newUserStake;
 	frame_dig -3 // newUserStake: uint64
 	itob
@@ -712,21 +753,21 @@ abi_route_removeStake:
 removeStake:
 	proto 4 0
 
-	// contracts/asset-staker.algo.ts:213
+	// contracts/asset-staker.algo.ts:226
 	// stake = this.userStake(this.txn.sender).value
 	txn Sender
 	byte 0x7573 // "us"
 	app_local_get
 	frame_bury -3 // stake: uint64
 
-	// contracts/asset-staker.algo.ts:216
+	// contracts/asset-staker.algo.ts:229
 	// assert(amount <= stake)
 	frame_dig -2 // amount: uint64
 	frame_dig -3 // stake: uint64
 	<=
 	assert
 
-	// contracts/asset-staker.algo.ts:218
+	// contracts/asset-staker.algo.ts:231
 	// assert(asset === this.stakeAsset.value)
 	frame_dig -1 // asset: asset
 	byte 0x7361 // "sa"
@@ -734,13 +775,13 @@ removeStake:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:221
+	// contracts/asset-staker.algo.ts:234
 	// this.calculateRewards(this.txn.sender)
-	byte 0x; dupn 4 // push empty bytes to fill the stack frame for this subroutine's local variables
+	byte 0x; dupn 2 // push empty bytes to fill the stack frame for this subroutine's local variables
 	txn Sender
 	callsub calculateRewards
 
-	// contracts/asset-staker.algo.ts:224
+	// contracts/asset-staker.algo.ts:237
 	// sendAssetTransfer({
 	//       xferAsset: asset,
 	//       assetAmount: amount,
@@ -750,17 +791,17 @@ removeStake:
 	int axfer
 	itxn_field TypeEnum
 
-	// contracts/asset-staker.algo.ts:225
+	// contracts/asset-staker.algo.ts:238
 	// xferAsset: asset
 	frame_dig -1 // asset: asset
 	itxn_field XferAsset
 
-	// contracts/asset-staker.algo.ts:226
+	// contracts/asset-staker.algo.ts:239
 	// assetAmount: amount
 	frame_dig -2 // amount: uint64
 	itxn_field AssetAmount
 
-	// contracts/asset-staker.algo.ts:227
+	// contracts/asset-staker.algo.ts:240
 	// assetReceiver: this.txn.sender
 	txn Sender
 	itxn_field AssetReceiver
@@ -772,7 +813,7 @@ removeStake:
 	// Submit inner transaction
 	itxn_submit
 
-	// contracts/asset-staker.algo.ts:231
+	// contracts/asset-staker.algo.ts:244
 	// this.totalStaked.value = this.totalStaked.value - amount
 	byte 0x7473 // "ts"
 	byte 0x7473 // "ts"
@@ -781,7 +822,7 @@ removeStake:
 	-
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:233
+	// contracts/asset-staker.algo.ts:246
 	// newUserStake = this.userStake(this.txn.sender).value - amount
 	txn Sender
 	byte 0x7573 // "us"
@@ -790,14 +831,14 @@ removeStake:
 	-
 	frame_bury -4 // newUserStake: uint64
 
-	// contracts/asset-staker.algo.ts:234
+	// contracts/asset-staker.algo.ts:247
 	// this.userStake(this.txn.sender).value = newUserStake
 	txn Sender
 	byte 0x7573 // "us"
 	frame_dig -4 // newUserStake: uint64
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:236
+	// contracts/asset-staker.algo.ts:249
 	// return newUserStake;
 	frame_dig -4 // newUserStake: uint64
 	itob

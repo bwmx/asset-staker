@@ -44,12 +44,10 @@ class AssetStaker extends Contract {
     });
   }
 
-  //
-  private calculateRewards(account: Account): void {
-    // no point if has not yet begun (users arent entitled to rewards)
-    assert(globals.latestTimestamp >= this.startTimestamp.value);
-    // do nothing if user is updating their balance after finish time
-    assert(this.userLastUpdated(account).value <= this.finishTimestamp.value);
+  private getRewardPerToken(account: Account): uint64 {
+    if (this.totalStaked.value === 0) {
+      return 0;
+    }
 
     const end =
       globals.latestTimestamp > this.finishTimestamp.value ? this.finishTimestamp.value : globals.latestTimestamp;
@@ -61,9 +59,24 @@ class AssetStaker extends Contract {
 
     // calculate how many seconds have passed
     const duration = end - start;
+
+    return duration * this.rewardRate.value;
+  }
+
+  //
+  private calculateRewards(account: Account): void {
+    if (globals.latestTimestamp < this.startTimestamp.value) {
+      return;
+    }
+
+    if (this.userLastUpdated(account).value > this.finishTimestamp.value) {
+      return;
+    }
+
+    const rewardsPerToken = this.getRewardPerToken(account);
     const amountStaked = this.userStake(account).value;
 
-    const rewardsEarned = (((amountStaked * duration) / 31557600) * this.rewardRate.value) / 10000;
+    const rewardsEarned = amountStaked * rewardsPerToken;
 
     // update user local state with their rewards earned
     this.userPendingRewards(account).value = this.userPendingRewards(account).value + rewardsEarned;

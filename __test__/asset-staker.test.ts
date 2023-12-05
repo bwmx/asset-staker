@@ -1,4 +1,4 @@
-import { describe, test, beforeAll, beforeEach, expect } from '@jest/globals';
+import { describe, test, beforeAll, beforeEach, expect, jest } from '@jest/globals';
 import { algorandFixture } from '@algorandfoundation/algokit-utils/testing';
 import {
   Account,
@@ -9,6 +9,8 @@ import {
 } from 'algosdk';
 import { algos, sendTransaction } from '@algorandfoundation/algokit-utils';
 import { AssetStakerClient } from '../contracts/clients/AssetStakerClient';
+
+jest.useFakeTimers();
 
 const fixture = algorandFixture();
 
@@ -172,7 +174,7 @@ describe('AssetStaker', () => {
       from: testUser.addr,
       to: appAddress,
       assetIndex: createdAssetId,
-      amount: 1_000, // 100 tokens
+      amount: 100 * 10, // 100 tokens
       suggestedParams: await algod.getTransactionParams().do(),
     });
 
@@ -207,12 +209,20 @@ describe('AssetStaker', () => {
 
     await assetStakerUserClient.addStake({ axfer: axferTxn });
 
-    // call removeStake endpoint
-    await expect(
-      assetStakerUserClient.removeStake(
-        { asset: createdAssetId, amount: 100 * 10 },
-        { sendParams: { fee: algos(0.002) } }
-      )
-    ).resolves.not.toThrowError();
+    async function cb() {
+      // call removeStake endpoint
+      await expect(
+        assetStakerUserClient.removeStake(
+          { asset: createdAssetId, amount: 100 * 10 },
+          { sendParams: { fee: algos(0.002) } }
+        )
+      ).resolves.not.toThrowError();
+    }
+
+    setTimeout(() => {
+      cb();
+    }, 10_000);
+
+    jest.advanceTimersByTime(10_000);
   });
 });
