@@ -218,6 +218,7 @@ class AssetStaker extends Contract {
    * Allows users to remove staked tokens
    *
    * @param asset The stakeTokenAsset (needs implicitly declared?)
+   * @param amount how many tokens to remove
    *
    * @returns uint64 - the total number of tokens user has staked (may be zero if all are removed)
    */
@@ -247,5 +248,34 @@ class AssetStaker extends Contract {
     this.userStake(this.txn.sender).value = newUserStake;
 
     return newUserStake;
+  }
+
+  /**
+   * Allows users to remove rewards that have accrued
+   *
+   * @param asset The stakeTokenAsset (needs implicitly declared?)
+   *
+   * @returns number of rewards currently pending for user
+   */
+  claimRewards(asset: Asset): void {
+    // must be rewardAsset
+    assert(asset === this.rewardAsset.value);
+    // calc rewards
+    this.calculateRewards(this.txn.sender);
+
+    const userPendingRewards = this.userPendingRewards(this.txn.sender).value;
+    // user must have amount of rewards available
+    assert(userPendingRewards > 0);
+
+    // send user their rewards
+    sendAssetTransfer({
+      xferAsset: asset,
+      assetAmount: userPendingRewards,
+      assetReceiver: this.txn.sender,
+    });
+
+    // deduct amount claimed from pending amount
+    const newUserPendingRewards = this.userPendingRewards(this.txn.sender).value - userPendingRewards;
+    this.userPendingRewards(this.txn.sender).value = newUserPendingRewards;
   }
 }

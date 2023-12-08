@@ -101,13 +101,28 @@
         {
           "name": "amount",
           "type": "uint64",
-          "desc": ""
+          "desc": "how many tokens to remove"
         }
       ],
       "desc": "Allows users to remove staked tokens",
       "returns": {
         "type": "uint64",
         "desc": "uint64 - the total number of tokens user has staked (may be zero if all are removed)"
+      }
+    },
+    {
+      "name": "claimRewards",
+      "args": [
+        {
+          "name": "asset",
+          "type": "asset",
+          "desc": "The stakeTokenAsset (needs implicitly declared?)"
+        }
+      ],
+      "desc": "Allows users to remove rewards that have accrued",
+      "returns": {
+        "type": "void",
+        "desc": "number of rewards currently pending for user"
       }
     }
   ]

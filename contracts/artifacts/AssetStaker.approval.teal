@@ -731,6 +731,7 @@ addStake:
 // Allows users to remove staked tokens
 //
 // @param asset The stakeTokenAsset (needs implicitly declared?)
+// @param amount how many tokens to remove
 //
 // @returns uint64 - the total number of tokens user has staked (may be zero if all are removed)
 abi_route_removeStake:
@@ -753,21 +754,21 @@ abi_route_removeStake:
 removeStake:
 	proto 4 0
 
-	// contracts/asset-staker.algo.ts:226
+	// contracts/asset-staker.algo.ts:227
 	// stake = this.userStake(this.txn.sender).value
 	txn Sender
 	byte 0x7573 // "us"
 	app_local_get
 	frame_bury -3 // stake: uint64
 
-	// contracts/asset-staker.algo.ts:229
+	// contracts/asset-staker.algo.ts:230
 	// assert(amount <= stake)
 	frame_dig -2 // amount: uint64
 	frame_dig -3 // stake: uint64
 	<=
 	assert
 
-	// contracts/asset-staker.algo.ts:231
+	// contracts/asset-staker.algo.ts:232
 	// assert(asset === this.stakeAsset.value)
 	frame_dig -1 // asset: asset
 	byte 0x7361 // "sa"
@@ -775,13 +776,13 @@ removeStake:
 	==
 	assert
 
-	// contracts/asset-staker.algo.ts:234
+	// contracts/asset-staker.algo.ts:235
 	// this.calculateRewards(this.txn.sender)
 	byte 0x; dupn 2 // push empty bytes to fill the stack frame for this subroutine's local variables
 	txn Sender
 	callsub calculateRewards
 
-	// contracts/asset-staker.algo.ts:237
+	// contracts/asset-staker.algo.ts:238
 	// sendAssetTransfer({
 	//       xferAsset: asset,
 	//       assetAmount: amount,
@@ -791,17 +792,17 @@ removeStake:
 	int axfer
 	itxn_field TypeEnum
 
-	// contracts/asset-staker.algo.ts:238
+	// contracts/asset-staker.algo.ts:239
 	// xferAsset: asset
 	frame_dig -1 // asset: asset
 	itxn_field XferAsset
 
-	// contracts/asset-staker.algo.ts:239
+	// contracts/asset-staker.algo.ts:240
 	// assetAmount: amount
 	frame_dig -2 // amount: uint64
 	itxn_field AssetAmount
 
-	// contracts/asset-staker.algo.ts:240
+	// contracts/asset-staker.algo.ts:241
 	// assetReceiver: this.txn.sender
 	txn Sender
 	itxn_field AssetReceiver
@@ -813,7 +814,7 @@ removeStake:
 	// Submit inner transaction
 	itxn_submit
 
-	// contracts/asset-staker.algo.ts:244
+	// contracts/asset-staker.algo.ts:245
 	// this.totalStaked.value = this.totalStaked.value - amount
 	byte 0x7473 // "ts"
 	byte 0x7473 // "ts"
@@ -822,7 +823,7 @@ removeStake:
 	-
 	app_global_put
 
-	// contracts/asset-staker.algo.ts:246
+	// contracts/asset-staker.algo.ts:247
 	// newUserStake = this.userStake(this.txn.sender).value - amount
 	txn Sender
 	byte 0x7573 // "us"
@@ -831,14 +832,14 @@ removeStake:
 	-
 	frame_bury -4 // newUserStake: uint64
 
-	// contracts/asset-staker.algo.ts:247
+	// contracts/asset-staker.algo.ts:248
 	// this.userStake(this.txn.sender).value = newUserStake
 	txn Sender
 	byte 0x7573 // "us"
 	frame_dig -4 // newUserStake: uint64
 	app_local_put
 
-	// contracts/asset-staker.algo.ts:249
+	// contracts/asset-staker.algo.ts:250
 	// return newUserStake;
 	frame_dig -4 // newUserStake: uint64
 	itob
@@ -846,6 +847,106 @@ removeStake:
 	swap
 	concat
 	log
+	retsub
+
+// claimRewards(asset)void
+//
+// Allows users to remove rewards that have accrued
+//
+// @param asset The stakeTokenAsset (needs implicitly declared?)
+//
+// @returns number of rewards currently pending for user
+abi_route_claimRewards:
+	byte 0x; dup // push empty bytes to fill the stack frame for this subroutine's local variables
+
+	// asset: asset
+	txna ApplicationArgs 1
+	btoi
+	txnas Assets
+
+	// execute claimRewards(asset)void
+	callsub claimRewards
+	int 1
+	return
+
+claimRewards:
+	proto 3 0
+
+	// contracts/asset-staker.algo.ts:262
+	// assert(asset === this.rewardAsset.value)
+	frame_dig -1 // asset: asset
+	byte 0x7261 // "ra"
+	app_global_get
+	==
+	assert
+
+	// contracts/asset-staker.algo.ts:264
+	// this.calculateRewards(this.txn.sender)
+	byte 0x; dupn 2 // push empty bytes to fill the stack frame for this subroutine's local variables
+	txn Sender
+	callsub calculateRewards
+
+	// contracts/asset-staker.algo.ts:266
+	// userPendingRewards = this.userPendingRewards(this.txn.sender).value
+	txn Sender
+	byte 0x7570 // "up"
+	app_local_get
+	frame_bury -2 // userPendingRewards: uint64
+
+	// contracts/asset-staker.algo.ts:268
+	// assert(userPendingRewards > 0)
+	frame_dig -2 // userPendingRewards: uint64
+	int 0
+	>
+	assert
+
+	// contracts/asset-staker.algo.ts:271
+	// sendAssetTransfer({
+	//       xferAsset: asset,
+	//       assetAmount: userPendingRewards,
+	//       assetReceiver: this.txn.sender,
+	//     })
+	itxn_begin
+	int axfer
+	itxn_field TypeEnum
+
+	// contracts/asset-staker.algo.ts:272
+	// xferAsset: asset
+	frame_dig -1 // asset: asset
+	itxn_field XferAsset
+
+	// contracts/asset-staker.algo.ts:273
+	// assetAmount: userPendingRewards
+	frame_dig -2 // userPendingRewards: uint64
+	itxn_field AssetAmount
+
+	// contracts/asset-staker.algo.ts:274
+	// assetReceiver: this.txn.sender
+	txn Sender
+	itxn_field AssetReceiver
+
+	// Fee field not set, defaulting to 0
+	int 0
+	itxn_field Fee
+
+	// Submit inner transaction
+	itxn_submit
+
+	// contracts/asset-staker.algo.ts:278
+	// newUserPendingRewards = this.userPendingRewards(this.txn.sender).value - userPendingRewards
+	txn Sender
+	byte 0x7570 // "up"
+	app_local_get
+	frame_dig -2 // userPendingRewards: uint64
+	-
+	frame_bury -3 // newUserPendingRewards: uint64
+
+	// contracts/asset-staker.algo.ts:279
+	// this.userPendingRewards(this.txn.sender).value = newUserPendingRewards
+	txn Sender
+	byte 0x7570 // "up"
+	frame_dig -3 // newUserPendingRewards: uint64
+	app_local_put
 	retsub
 
 create_NoOp:
@@ -859,8 +960,9 @@ call_NoOp:
 	method "addRewards(axfer,uint64)uint64"
 	method "addStake(axfer)uint64"
 	method "removeStake(asset,uint64)uint64"
+	method "claimRewards(asset)void"
 	txna ApplicationArgs 0
-	match abi_route_bootstrap abi_route_addRewards abi_route_addStake abi_route_removeStake
+	match abi_route_bootstrap abi_route_addRewards abi_route_addStake abi_route_removeStake abi_route_claimRewards
 	err
 
 call_OptIn:
