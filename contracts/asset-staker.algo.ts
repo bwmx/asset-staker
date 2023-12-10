@@ -76,12 +76,21 @@ class AssetStaker extends Contract {
     const rewardsPerToken = this.getRewardPerToken(account);
     const amountStaked = this.userStake(account).value;
 
-    const rewardsEarned = amountStaked * rewardsPerToken;
+    const r = amountStaked * 1e18 * rewardsPerToken;
 
-    // update user local state with their rewards earned
-    this.userPendingRewards(account).value = this.userPendingRewards(account).value + rewardsEarned;
-    // remove rewards from total reward supply
-    this.totalRewards.value = this.totalRewards.value - rewardsEarned;
+    const rewardsEarned = r / 1e18;
+    // const rewardsEarned = wideRatio([rewardsPerToken, amountStaked], [100]);
+
+    // const rewardsEarned = amountStaked * rewardsPerToken;
+
+    if (this.totalRewards.value >= rewardsEarned) {
+      this.userPendingRewards(account).value = this.userPendingRewards(account).value + rewardsEarned;
+      // remove rewards from total reward supply
+      this.totalRewards.value = this.totalRewards.value - rewardsEarned;
+    } else {
+      this.userPendingRewards(account).value = this.userPendingRewards(account).value + this.totalRewards.value;
+      this.totalRewards.value = 0;
+    }
 
     // update local lastUpdated
     this.userLastUpdated(account).value = globals.latestTimestamp;
@@ -113,16 +122,11 @@ class AssetStaker extends Contract {
    * @param seed The `pay` txn to fund the app (0.2 min)
    * @param stakeAsset The asset to be staked
    * @param rewardAsset The asset to pay rewards
-   * @param start The start time in UNIX time
-   * @param finish The end time in UNIX time
+   * @param length the length of staking period in seconds
    *
    * @returns void
    */
-  bootstrap(seed: PayTxn, stakeAsset: Asset, rewardAsset: Asset, start: uint64, finish: uint64): void {
-    // ensure begin is before end
-    assert(start < finish);
-    // check begin time, end time are in the future from now
-    assert(globals.latestTimestamp < start);
+  bootstrap(seed: PayTxn, stakeAsset: Asset, rewardAsset: Asset, length: uint64): void {
     // ensure only the creator can bootstrap the app
     verifyTxn(this.txn, { sender: globals.creatorAddress });
     // ensure stakeAsset isn't set
@@ -148,8 +152,8 @@ class AssetStaker extends Contract {
       this.rewardAsset.value = stakeAsset;
     }
 
-    this.startTimestamp.value = start;
-    this.finishTimestamp.value = finish;
+    this.startTimestamp.value = globals.latestTimestamp;
+    this.finishTimestamp.value = globals.latestTimestamp + length;
   }
 
   /**

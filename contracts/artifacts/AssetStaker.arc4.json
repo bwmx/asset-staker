@@ -39,14 +39,9 @@
           "desc": "The asset to pay rewards"
         },
         {
-          "name": "start",
+          "name": "length",
           "type": "uint64",
-          "desc": "The start time in UNIX time"
-        },
-        {
-          "name": "finish",
-          "type": "uint64",
-          "desc": "The end time in UNIX time"
+          "desc": "the length of staking period in seconds"
         }
       ],
       "desc": "Allows creator to initialize the app",

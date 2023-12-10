@@ -85,6 +85,12 @@ describe('AssetStaker', () => {
     return assetId;
   }
 
+  async function optInAndFund(account: Account, amount: number) {
+    // have test user opt-in
+    await optInAsset(account, stakingAssetId);
+    // send them 100 test tokens
+    await dispenseStakingAsset(account.addr, amount);
+  }
   beforeEach(fixture.beforeEach);
 
   beforeAll(async () => {
@@ -94,6 +100,8 @@ describe('AssetStaker', () => {
     // same algo instance
     algod = fixture.context.algod;
 
+    await algod.setBlockOffsetTimestamp(1).do();
+
     assetStakerClient = new AssetStakerClient(
       {
         sender: testAccount,
@@ -102,8 +110,6 @@ describe('AssetStaker', () => {
       },
       algod
     );
-
-    await algod.setBlockOffsetTimestamp(1).do(); // make every block have 1s gap
 
     await assetStakerClient.create.createApplication({});
 
@@ -126,12 +132,10 @@ describe('AssetStaker', () => {
       suggestedParams: params,
     });
 
-    // This only works in Sandbox, not AlgoKit Localnet, which doesn't advance blocks & time normally
-    const start = Math.floor(Date.now() / 1000) + 30;
-    const finish = start + 6000; // now + 600 secs
+    const length = 600; // 10 minutes
 
     await assetStakerClient.bootstrap(
-      { seed: seedTxn, stakeAsset: stakingAssetId, rewardAsset: stakingAssetId, start, finish },
+      { seed: seedTxn, stakeAsset: stakingAssetId, rewardAsset: stakingAssetId, length },
       { sendParams: { fee: algos(0.2) }, note: 'beforeAll_bootstrap' }
     );
   });
@@ -182,16 +186,14 @@ describe('AssetStaker', () => {
   });
 
   test('removeStake', async () => {
-    const { generateAccount } = fixture.context;
+    const { testAccount } = fixture.context;
 
-    const testUser = await generateAccount({ initialFunds: algos(1) });
-    // have test user opt-in
-    await optInAsset(testUser, stakingAssetId);
-    // send them 100 test tokens
-    await dispenseStakingAsset(testUser.addr, 100 * 10);
+    const amount = 100 * 10;
+
+    await optInAndFund(testAccount, amount);
 
     const assetStakerUserClient = new AssetStakerClient(
-      { sender: testUser, resolveBy: 'id', id: assetStakerAppId },
+      { sender: testAccount, resolveBy: 'id', id: assetStakerAppId },
       algod
     );
     // opt in so we can get a local state
@@ -200,10 +202,10 @@ describe('AssetStaker', () => {
     const { appAddress } = await assetStakerUserClient.appClient.getAppReference();
 
     const axferTxn = makeAssetTransferTxnWithSuggestedParamsFromObject({
-      from: testUser.addr,
+      from: testAccount.addr,
       to: appAddress,
       assetIndex: stakingAssetId,
-      amount: 100 * 10, // 100 tokens
+      amount, // 100 tokens
       suggestedParams: await getTransactionParams(undefined, algod),
     });
 
@@ -212,7 +214,7 @@ describe('AssetStaker', () => {
     // call removeStake endpoint
     await expect(
       assetStakerUserClient.removeStake(
-        { asset: stakingAssetId, amount: 100 * 10 },
+        { asset: stakingAssetId, amount },
         { note: 'removeStake_removeStake', sendParams: { fee: algos(0.002) } }
       )
     ).resolves.not.toThrowError();
@@ -221,11 +223,9 @@ describe('AssetStaker', () => {
   test('claimRewards', async () => {
     const { testAccount } = fixture.context;
 
-    // have test user opt-in
-    await optInAsset(testAccount, stakingAssetId);
-    // send them 100 test tokens
-    await dispenseStakingAsset(testAccount.addr, 100 * 10);
+    const stakeAmount = 100 * 10; // 100 tokens
 
+    await optInAndFund(testAccount, stakeAmount);
     const assetStakerUserClient = new AssetStakerClient(
       { sender: testAccount, resolveBy: 'id', id: assetStakerAppId },
       algod
@@ -240,7 +240,7 @@ describe('AssetStaker', () => {
       from: testAccount.addr,
       to: appAddress,
       assetIndex: stakingAssetId,
-      amount: 100 * 10, // 100 tokens
+      amount: stakeAmount,
       suggestedParams: await getTransactionParams(undefined, algod),
     });
 
